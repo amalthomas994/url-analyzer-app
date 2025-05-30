@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import axios from 'axios';
-import { url } from 'inspector';
+import * as cheerio from 'cheerio';
 
 console.log("Starting Server")
 const app = express();
@@ -36,6 +36,33 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
             timeout: 10000
         });
 
+        //Using cheerrio to parse html content
+        const htmlParser = cheerio.load(response.data);
+        
+        //Empty array for images found
+        const images: (string | undefined)[] = [];
+        
+        //Find images with 'img' tag
+        htmlParser('img').each((index, element) => {
+            const src = htmlParser(element).attr('src');
+            images.push(src);
+        });
+
+        console.log(`Images Found: ${images}`);
+
+        //Empty array for links found
+        const links: (string | undefined)[] = [];
+        
+        //Find links with 'href' tag
+        htmlParser('a').each((index, element) => {
+            const href = htmlParser(element).attr('href');
+            links.push(href);
+        });
+
+        console.log(`Links Found: ${links}`);
+
+
+
         //Return snippet of HTML
         const html_snippet = typeof response.data === 'string' ? response.data.substring(0, 500) : "Could not retrive HTML as string";
         console.log(`Successfully reterived URL: ${url_to_analyze}. Status: [${response.status}]`)
@@ -43,7 +70,9 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
         res.status(200).json({
             message: `URL retrived successfully!`,
             requestedURL: url_to_analyze,
-            html_snippet: html_snippet + '...'
+            html_snippet: html_snippet + '...',
+            images: images,
+            links: links
         })
     } catch (error: any) {
         console.error(`Error retrieving URL ${url_to_analyze}:`, error.message)
