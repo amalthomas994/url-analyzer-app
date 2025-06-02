@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import path from 'path' //Using for working with URL paths and getting extensions
 import { log } from 'console';
+import { extractAndCategorizeLinks } from './parser';
 console.log("Starting Server")
 const app = express();
 app.use(cors()); //Enable CORS
@@ -45,6 +46,13 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
         //Using cheerrio to parse html content
         const htmlParser = cheerio.load(response.data);
         
+        const htmlContent = response.data;
+
+        //Extract and Categorize Links from parser function
+        const { internalLinks, externalLinks } = extractAndCategorizeLinks(htmlContent, url_to_analyze); // <--- USE THE NEW FUNCTION
+        console.log(`Internal Links Found: ${internalLinks.length}`);
+        console.log(`External Links Found: ${externalLinks.length}`);
+
         //Empty array for images found
         const images: (string | undefined)[] = [];
         
@@ -56,60 +64,6 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
 
         console.log(`Images Found: ${images}`);
 
-        //Empty array for links found
-        const links: (string | undefined)[] = [];
-        
-        //Find links with 'href' tag
-        htmlParser('a').each((index, element) => {
-            const href = htmlParser(element).attr('href');
-            links.push(href);
-        });
-
-        console.log(`Links Found: ${links}`);
-
-        const internalLinks: string[] = []; //array for internal links
-        const externalLinks: string[] = []; //array for external links
-        const baseURL = new URL(url_to_analyze).origin; // Base URL
-        const hostname = new URL(url_to_analyze).hostname; // Base Hostname
-
-        links.forEach((href) => {
-            if(href){
-                try {
-                    const absoluteURL = new URL(href, url_to_analyze).href; //getting absolute URL relative to the fetched page's URL
-                    if (!absoluteURL.startsWith('http:') && !absoluteURL.startsWith('https:')){ //filter out non http links
-                        return;
-                    }
-                    if (absoluteURL.startsWith(baseURL + '#')){ //filter out fragment identifiers
-                        if (href.startsWith('#')){ //skip if original href was a fragment
-                            return;
-                        }
-                    }
-
-                    const currentLinkHostname = new URL(absoluteURL).hostname; //Hostname for current link being processed
-                    console.log(`currentLinkHostname: ${currentLinkHostname}`)
-
-                    if (currentLinkHostname === hostname){ //If internal link
-                        if(!internalLinks.includes(absoluteURL)){ //ensure no duplicates
-                            internalLinks.push(absoluteURL); //push to internal links array
-                        }
-                    }else{//external link
-                        if(!externalLinks.includes(absoluteURL)){
-                            externalLinks.push(absoluteURL); //push to external links array
-                        }
-                    }
-                
-
-                } catch (error) {
-                    if (error instanceof Error) {
-                        console.warn(`Could not parse or resolve URL: ${href} (base: ${url_to_analyze})`, error.message);
-                    } else {
-                        console.warn(`An unexpected error occurred while processing URL: ${href} (base: ${url_to_analyze})`, error);
-                    }
-                }
-            }
-        });
-        console.log(`Interal Links: ${internalLinks}`);
-        console.log(`Exteral Links: ${externalLinks}`);
 
         const imageDetails: {[key: string]: {count: number}} = {};
 
@@ -164,7 +118,7 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
             html_snippet: html_snippet + '...',
             images: images,
             imageDetails: imageDetails,
-            internalLinksinks: internalLinks,
+            internalLinks: internalLinks,
             externalLinks: externalLinks
         })
     } catch (error: any) {
