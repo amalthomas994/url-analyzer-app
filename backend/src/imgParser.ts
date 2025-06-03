@@ -153,55 +153,69 @@ export async function analyzeImages(htmlContent: string, url_to_analyze: string)
     potentialImageURLs.push(...findLinkAndMetaTagImageSources(htmlParser, url_to_analyze));
 
     const uniqueImageUrls = [...new Set(potentialImageURLs)]; //Remove Duplicate URLS
-    const imageDetailsResult: ExtensionAnalysis = {};
+    const imageDetailsResult: ExtensionAnalysis = {}; //Object to store found images
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.avif', '.tiff']; //list of known image extensions
 
+    //iterate through all unique image urls
     for (const src of uniqueImageUrls) {
         if (src) {
             try {
-                let absoluteImgUrl: string;
-                let isDataUrl = false;
-                let mimeTypeFromDataUrl: string | null = null;
+                let absoluteImgUrl: string; //to hold full absolute URL of the image
+                let isDataUrl = false; //track if "src" is a data URL
+                let mimeTypeFromDataUrl: string | null = null; //to store MIME type if data url
 
+                //if data URL - embed image data directly in URL string
                 if (src.startsWith('data:image/')) {
                     isDataUrl = true;
-                    absoluteImgUrl = src; 
+                    absoluteImgUrl = src; //src is the absolute URL
                     const mimeMatch = src.match(/^data:(image\/[^;]+);/);
+                    // This regex looks for:
+                    //   ^data:        - "data:" at the beginning.
+                    //   (image\/[^;]+) - capturing group for "image/" followed by any characters
+                    //                    that are not a semicolon, one or more times. This is our MIME type.
                     if (mimeMatch && mimeMatch[1]) {
-                        mimeTypeFromDataUrl = mimeMatch[1]; 
+                        mimeTypeFromDataUrl = mimeMatch[1]; //if regex match store MIME type
                     }
-                } else {
-                    absoluteImgUrl = new URL(src, url_to_analyze).href;
+                } else { //Non-Data URLs
+                    absoluteImgUrl = new URL(src, url_to_analyze).href; //Resolve absolute URL
                     if (!absoluteImgUrl.startsWith('http:') && !absoluteImgUrl.startsWith('https:')) {
-                        continue; 
+                        continue; //filter out urls that are not HTTP or HTTPs
                     }
                 }
 
+                //to get file extension
                 let extension = '';
+                //if data url and MIME type received 
                 if (isDataUrl && mimeTypeFromDataUrl) {
+                    //convery MIME type to extension format
                     extension = '.' + mimeTypeFromDataUrl.split('/')[1];
                 } else if (!isDataUrl) {
+                    //if regular URL
                     const parsedUrl = new URL(absoluteImgUrl);
-                    extension = path.extname(parsedUrl.pathname).toLowerCase();
+                    extension = path.extname(parsedUrl.pathname).toLowerCase(); //get extension from path name
 
+                    //if extension from pathname isn't a known image extension try finding an extension in the query paremeter of the URL
                     if (!imageExtensions.includes(extension)) {
                         for (const value of parsedUrl.searchParams.values()) {
-                            const queryParamExt = path.extname(value).toLowerCase();
-                            if (imageExtensions.includes(queryParamExt)) {
-                                extension = queryParamExt;
+                            const queryParamExtension = path.extname(value).toLowerCase(); //get extension from value of query parameter
+                            if (imageExtensions.includes(queryParamExtension)) {
+                                extension = queryParamExtension;
                                 break;
                             }
                         }
                     }
                 }
                 
+                //if valid extension found
                 if (extension && imageExtensions.includes(extension)) {
+                    //initialize extension enry in imageDetailsResult object
                     if (!imageDetailsResult[extension]) {
                         imageDetailsResult[extension] = { count: 0, totalSize: 0, sources: [] };
                     }
-                    imageDetailsResult[extension].count++;
-                    imageDetailsResult[extension].sources.push(absoluteImgUrl); 
+                    imageDetailsResult[extension].count++; //increment count of extension
+                    imageDetailsResult[extension].sources.push(absoluteImgUrl); //store absolute url
                 } else if (src) { 
+                    //if extension could not be determined group as .unknown
                     const unknownExt = ".unknown";
                     if (!imageDetailsResult[unknownExt]) {
                         imageDetailsResult[unknownExt] = { count: 0, totalSize: 0, sources: [] };
@@ -210,8 +224,12 @@ export async function analyzeImages(htmlContent: string, url_to_analyze: string)
                     imageDetailsResult[unknownExt].sources.push(src);
                 }
 
-            } catch (e) {
-                
+            } catch (error) {
+                if (error instanceof Error) {
+                    console.warn(`Could not parse or resolve URL: ${src} (base: ${url_to_analyze})`, error.message);
+                } else {
+                    console.warn(`An unexpected error occurred while processing URL: ${src} (base: ${url_to_analyze})`, error);
+                }
             }
         }
     }

@@ -1,11 +1,13 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import axios from 'axios';
-import * as cheerio from 'cheerio';
-import path from 'path' //Using for working with URL paths and getting extensions
-import { log } from 'console';
-import { extractAndCategorizeLinks } from './parser';
+// import path from 'path' //Using for working with URL paths and getting extensions
+// import { log } from 'console';
+import { extractAndCategorizeLinks } from './linkParser';
+import { analyzeImages, ExtensionAnalysis } from './imgParser';
+
 console.log("Starting Server")
+//Initialize Express app
 const app = express();
 app.use(cors()); //Enable CORS
 app.use(express.json()); //Parse incoming requests as JSON payloads
@@ -43,70 +45,15 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
             timeout: 10000
         });
 
-        //Using cheerrio to parse html content
-        const htmlParser = cheerio.load(response.data);
-        
         const htmlContent = response.data;
 
         //Extract and Categorize Links from parser function
-        const { internalLinks, externalLinks } = extractAndCategorizeLinks(htmlContent, url_to_analyze); // <--- USE THE NEW FUNCTION
+        const { internalLinks, externalLinks } = extractAndCategorizeLinks(htmlContent, url_to_analyze);
         console.log(`Internal Links Found: ${internalLinks.length}`);
         console.log(`External Links Found: ${externalLinks.length}`);
 
-        //Empty array for images found
-        const images: (string | undefined)[] = [];
-        
-        //Find images with 'img' tag
-        htmlParser('img').each((index, element) => {
-            const src = htmlParser(element).attr('src');
-            images.push(src);
-        });
-
-        console.log(`Images Found: ${images}`);
-
-
-        const imageDetails: {[key: string]: {count: number}} = {};
-
-        images.forEach((src) => {
-            if (src){
-                try {
-                    
-                    const absoluteImageURL = new URL(src, url_to_analyze).href; //getting absolute image URL relative to the fetched page's URL
-                    console.log(`absoluteImageURL: ${absoluteImageURL}`)
-
-                    if (!absoluteImageURL.startsWith('http:') && !absoluteImageURL.startsWith('https:')){ //filter out non http links
-                        return;
-                    }
-
-                    const pathname = new URL(absoluteImageURL).pathname; //Path for current link being processed
-                    console.log(`PATHNAME: ${pathname}`)
-                    const extension = path.extname(pathname).toLowerCase(); //getting extension
-                    console.log(`extension: ${extension}`)
-                    
-                    if (extension){
-                        if (imageDetails[extension]){ //if extension count exists then add to counter
-                            imageDetails[extension].count++;
-                        }else{ //otherwise initialize count
-                            imageDetails[extension] = { count: 1};
-                        }
-                    }else{
-                        const unknownExt = ".unknown"; //if there is an image without a clear extension
-                        if (imageDetails[unknownExt]){
-                            imageDetails[unknownExt].count++;
-                        }else{
-                            imageDetails[unknownExt] = {count: 1};
-                        }
-                    }
-
-                } catch (error) {
-                    if (error instanceof Error) {
-                        console.warn(`Could not parse or resolve Image URL: ${src} (base: ${url_to_analyze})`, error.message);
-                    } else {
-                        console.warn(`An unexpected error occurred while processing Image URL: ${src} (base: ${url_to_analyze})`, error);
-                    }
-                }
-            }
-        })
+        const imageDetails: ExtensionAnalysis = await analyzeImages(htmlContent, url_to_analyze);
+        console.log(`Found images for ${Object.keys(imageDetails).length} image types.`)
 
         //Return snippet of HTML
         const html_snippet = typeof response.data === 'string' ? response.data.substring(0, 500) : "Could not retrive HTML as string";
@@ -116,7 +63,6 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
             message: `URL retrived successfully!`,
             requestedURL: url_to_analyze,
             html_snippet: html_snippet + '...',
-            images: images,
             imageDetails: imageDetails,
             internalLinks: internalLinks,
             externalLinks: externalLinks
@@ -133,7 +79,7 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
                 })
             } else if (error.request){ //No response from server
             res.status(500).json({
-                message: `No response from server: ${error.message}`,
+                message: `No response from server: ${error.message}. Ensure URL is correct!`,
                 requestedURL: url_to_analyze,
                 error: "Failed to retrieve URL!"
             })} else {
