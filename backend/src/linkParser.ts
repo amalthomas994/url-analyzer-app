@@ -30,7 +30,7 @@ export function extractAndCategorizeLinks(htmlContent: string, url_to_analyze: s
 
                 //filter out fragment identifiers
                 if (href.startsWith('#') && absoluteUrl.startsWith(baseURL + '#')) {
-                    return; 
+                    return;
                 }
 
                 const linkHostname = new URL(absoluteUrl).hostname; //Hostname for current link being processed
