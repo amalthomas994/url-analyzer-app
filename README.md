@@ -129,3 +129,77 @@ The backend exposes a single API endpoint for URL analysis:
 * **Node.js `url` and `path` modules:** For URL parsing, resolution, and path manipulation.
 
 ## Frontend (Flutter)
+The frontend is a Flutter application that provides the user interface for entering a URL, displays the analysis results received from the backend, and allows for recursive analysis by clicking on discovered links.
+
+**Important:** Before running the frontend, ensure the **Backend Server is running** (see "Running the Backend" section above). The frontend connects to the backend at `http://localhost:3000` by default.
+
+### Option 1: Running the Pre-built Web Application (Easiest Method)
+
+This is the quickest way to run the frontend application without needing to install Flutter or any development tools (other than a web browser and optionally Python for serving).
+
+1.  **Navigate to the pre-built web application directory:**
+    In your terminal, change to the `frontend_web_prebuilt/web` directory located at the root of this project.
+    ```bash
+    cd frontend_web_prebuilt/web
+    ```
+2.  **Serve the application using a simple HTTP server.**
+    * **If you have Python 3 installed:**
+        You can use Python's built-in HTTP server. Run the following command from inside the `frontend_web_prebuilt/web` directory:
+        ```bash
+        python -m http.server 8000
+        ```
+        (This will serve the app on port 8000. You can use another available port if 8000 is in use.)
+    * **Alternative for VS Code users:**
+        If you have Visual Studio Code and the "Live Server" extension installed, you can:
+        1.  Open the `frontend_web_prebuilt/web` folder in VS Code.
+        2.  Right-click on the `index.html` file within this folder.
+        3.  Select "Open with Live Server".
+    * **Other HTTP Servers:** Any simple static file server can be used.
+3.  **Open the application in your web browser:**
+    Navigate to `http://localhost:8000` (or the port and address your HTTP server is using).
+
+### Option 2: Running from Source (for Development)
+
+This method requires you to have the Flutter SDK installed and configured on your system.
+
+#### Prerequisites (for running from source)
+
+* **Flutter SDK:** Version 3.x.x or later recommended. (Verify with `flutter --version` and `flutter doctor`).
+* **A web browser** (like Chrome) for web development, or an emulator/device for mobile.
+
+#### Setup and Run Instructions (from source)
+
+1.  **Navigate to the frontend source code directory:**
+    ```bash
+    cd frontend
+    ```
+2.  **Get Flutter dependencies:**
+    This command reads the `pubspec.yaml` file and downloads all the necessary Flutter packages.
+    ```bash
+    flutter pub get
+    ```
+3.  **Run the application:**
+    * To run as a web application (recommended for easy testing with the local backend):
+        ```bash
+        flutter run -d chrome
+        ```
+    * To run on a connected device or emulator (if set up):
+        ```bash
+        flutter run
+        ```
+    The application will build and launch. Changes to the source code will support hot reload.
+
+### Frontend Features
+
+* Input field for URL submission.
+* Displays counts and total byte sizes for each image type.
+* Lists internal and external links found on the analyzed page.
+* Links in the results are clickable to trigger a new analysis for that URL.
+* Basic theme selection (Light/Dark/System) via a settings page.
+* Splash screen on app startup.
+
+### Technologies Used (Frontend)
+
+* **Flutter SDK:** UI toolkit for building natively compiled applications.
+* **Dart:** Programming language used by Flutter.
+* **`http` package:** For making API calls to the backend.
