@@ -5,6 +5,7 @@ import axios from 'axios';
 // import { log } from 'console';
 import { extractAndCategorizeLinks } from './linkParser';
 import { analyzeImages, getHttpImageSizes, ExtensionAnalysis } from './imgParser';
+import * as https from 'https';
 
 console.log("Starting Server")
 //Initialize Express app
@@ -20,6 +21,18 @@ app.get('/', (req: Request, res: Response) => {
     res.status(200).json({ message: "Backed Server is Active!" });
 
 });
+
+
+// Since the challenge asked for a production ready solution, I disabled direct bypassing of SSL certificate validation
+// ('rejectUnauthorized: false') as it is a security risk and is disabled by default.
+// This may cause failures when analyzing URLs with self-signed or untrusted certificates.
+// A more robust solution for handling specific untrusted certificates, or a UI toggle
+// for development purposes, was considered but omitted for timely completion
+// and to prioritize security in the submitted code.
+// const agent = new https.Agent({
+//   rejectUnauthorized: false,
+// });
+
 
 //Analyze Url Path. URL will be supplied via URL query string parameter
 app.get('/analyze_url', async (req: Request, res: Response) => {
@@ -42,7 +55,8 @@ app.get('/analyze_url', async (req: Request, res: Response) => {
         //Using axios to retrive HTML content of supplied URL to analyze
         const response = await axios.get(url_to_analyze, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36' },
-            timeout: 10000
+            timeout: 10000,
+            // httpsAgent: agent
         });
 
         const htmlContent = response.data;
